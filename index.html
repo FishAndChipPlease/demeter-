@@ -234,6 +234,21 @@ input[type=range]{width:100%;accent-color:var(--g);margin-top:8px;}
   <div class="login-switch">Already have an account? <span onclick="showLogin()">Log in</span></div>
 </div>
 
+<!-- BANNED / APPEAL SCREEN -->
+<div class="login hidden" id="banned-screen">
+  <div class="login-logo" style="background:var(--rl);">
+    <svg viewBox="0 0 24 24" stroke="var(--rd)"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+  </div>
+  <div class="login-name" id="banned-title">Access suspended</div>
+  <div class="login-sub" id="banned-msg" style="max-width:320px;">Your access to Demeter has been suspended by an administrator.</div>
+  <button class="login-email-btn" id="appeal-btn" style="margin-top:24px;" onclick="showAppealForm()">Submit an appeal</button>
+  <div id="appeal-form" style="width:100%;max-width:340px;display:none;margin-top:14px;">
+    <input type="text" class="login-email" id="appeal-text" placeholder="Why should your access be restored?" style="text-align:left;">
+    <button class="login-email-btn" style="margin-top:10px;" onclick="submitAppeal()">Send appeal</button>
+  </div>
+  <div class="login-switch"><span onclick="backToLogin()">Back to login</span></div>
+</div>
+
 <!-- USER ACTION MODAL -->
 <div class="overlay" id="user-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" onclick="event.stopPropagation()">
@@ -470,6 +485,12 @@ input[type=range]{width:100%;accent-color:var(--g);margin-top:8px;}
   <div class="sec">Users</div>
   <div id="regular-list"></div>
   <div id="users-empty" style="text-align:center;padding:20px 0;display:none;"><div style="font-size:14px;color:var(--t3);">No other users yet.</div></div>
+
+  <div class="sec" id="appeals-header" style="display:none;">Pending appeals</div>
+  <div id="appeals-list"></div>
+
+  <div class="sec" id="banned-header" style="display:none;">Banned</div>
+  <div id="banned-list"></div>
 </div>
 
 </div>
@@ -564,6 +585,7 @@ function decodeJwt(token){
 
 // Tracks whether the user tapped Log in or Sign up
 let authMode='login';
+let pendingEmail='';   // email of a banned user trying to appeal
 
 // Called after we get the user's profile (from Google or typed email)
 function onGoogleProfile(email,name){
@@ -583,9 +605,54 @@ function onGoogleProfile(email,name){
       showLogin();
       return;
     }
-    if(data&&data.user){currentUser=data.user;users=data.users||[];finishLogin();}
+    if(data&&data.user){
+      const u=data.user;
+      // Check ban status
+      if(u.status==='banned'){
+        pendingEmail=u.email;
+        showBanned('Your access to Demeter has been suspended by an administrator.', true);
+        return;
+      }
+      if(u.status==='appealing'){
+        pendingEmail=u.email;
+        showBanned('Your appeal is under review. Please wait for an administrator to respond.', false);
+        return;
+      }
+      if(u.status==='rejected'){
+        pendingEmail=u.email;
+        showBanned('Your access remains restricted. Please contact the administrator for assistance.', false);
+        return;
+      }
+      currentUser=u;users=data.users||[];finishLogin();
+    }
     else{showToast('Failed — check connection');}
   }).catch(()=>showToast('Cannot reach server'));
+}
+
+// Show the banned/appeal screen
+function showBanned(message,canAppeal){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('signup-screen').classList.add('hidden');
+  document.getElementById('banned-screen').classList.remove('hidden');
+  document.getElementById('banned-msg').textContent=message;
+  document.getElementById('appeal-btn').style.display=canAppeal?'block':'none';
+  document.getElementById('appeal-form').style.display='none';
+}
+function showAppealForm(){
+  document.getElementById('appeal-btn').style.display='none';
+  document.getElementById('appeal-form').style.display='block';
+}
+function submitAppeal(){
+  const msg=(document.getElementById('appeal-text').value||'').trim()||'(no message)';
+  showToast('Submitting appeal...');
+  api({action:'appeal',email:pendingEmail,message:msg}).then(()=>{
+    showBanned('Your appeal has been submitted. Please wait for an administrator to respond.',false);
+    showToast('Appeal submitted');
+  }).catch(()=>showToast('Could not submit appeal'));
+}
+function backToLogin(){
+  document.getElementById('banned-screen').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
 }
 
 let tokenClient=null;
@@ -707,7 +774,7 @@ function openUserMenu(email){
       html+='<button class="btn btn-g" style="margin-bottom:10px;" onclick="setRole(\''+u.email+'\',\'user\')">Remove admin rights</button>';
     }
     if(!isSelf){
-      html+='<button class="btn" style="background:var(--rl);color:var(--rd);margin-bottom:10px;" onclick="removeUser(\''+u.email+'\')">Remove / ban user</button>';
+      html+='<button class="btn" style="background:var(--rl);color:var(--rd);margin-bottom:10px;" onclick="banUser(\''+u.email+'\')">Ban user</button>';
     }
   }
   document.getElementById('user-modal-actions').innerHTML=html;
@@ -725,12 +792,29 @@ function setRole(email,role){
   }).catch(()=>showToast('Failed — check connection'));
 }
 
-function removeUser(email){
+function banUser(email){
   document.getElementById('user-modal').classList.remove('open');
-  showToast('Removing...');
-  api({action:'remove',email:email}).then(data=>{
+  showToast('Banning...');
+  api({action:'ban',email:email}).then(data=>{
     if(data&&data.users){users=data.users;}
-    renderUsers();showToast('User removed');
+    renderUsers();showToast('User banned');
+  }).catch(()=>showToast('Failed — check connection'));
+}
+
+// Accept an appeal → restore as normal user
+function acceptAppeal(email){
+  showToast('Restoring access...');
+  api({action:'unban',email:email}).then(data=>{
+    if(data&&data.users){users=data.users;}
+    renderUsers();showToast('Access restored');
+  }).catch(()=>showToast('Failed — check connection'));
+}
+// Reject an appeal → status rejected (shows contact-admin message)
+function rejectAppeal(email){
+  showToast('Rejecting appeal...');
+  api({action:'reject',email:email}).then(data=>{
+    if(data&&data.users){users=data.users;}
+    renderUsers();showToast('Appeal rejected');
   }).catch(()=>showToast('Failed — check connection'));
 }
 
@@ -745,12 +829,44 @@ function userRowHtml(u){
     +'</div>';
 }
 
+function appealRowHtml(u){
+  return '<div class="urow" style="flex-wrap:wrap;">'
+    +'<div class="uav" style="background:var(--a);">'+u.name.charAt(0)+'</div>'
+    +'<div class="uinfo"><div class="uname">'+u.name+'</div><div class="umail">'+u.email+'</div></div>'
+    +'<span class="urole" style="background:var(--al);color:var(--ad);">APPEALING</span>'
+    +(u.message?'<div style="width:100%;font-size:13px;color:var(--t2);margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:8px;">"'+u.message+'"</div>':'')
+    +'<div style="display:flex;gap:8px;width:100%;margin-top:10px;">'
+    +'<button class="btn-sm btn-sm-g" style="flex:1;padding:8px;" onclick="acceptAppeal(\''+u.email+'\')">Accept</button>'
+    +'<button class="btn-sm btn-sm-r" style="flex:1;padding:8px;" onclick="rejectAppeal(\''+u.email+'\')">Reject</button>'
+    +'</div></div>';
+}
+
+function bannedRowHtml(u){
+  const label=(u.status==='rejected')?'REJECTED':'BANNED';
+  return '<div class="urow">'
+    +'<div class="uav" style="background:var(--r);">'+u.name.charAt(0)+'</div>'
+    +'<div class="uinfo"><div class="uname">'+u.name+'</div><div class="umail">'+u.email+'</div></div>'
+    +'<span class="urole" style="background:var(--rl);color:var(--rd);">'+label+'</span>'
+    +'<div class="umenu" onclick="acceptAppeal(\''+u.email+'\')" title="Unban"><svg viewBox="0 0 24 24" stroke="var(--g)"><polyline points="20 6 9 17 4 12"/></svg></div>'
+    +'</div>';
+}
+
 function renderUsers(){
-  const admins=users.filter(u=>u.role==='admin');
-  const regs=users.filter(u=>u.role==='user');
+  const isActive=u=>!u.status||u.status==='active';
+  const admins=users.filter(u=>u.role==='admin'&&isActive(u));
+  const regs=users.filter(u=>u.role==='user'&&isActive(u));
+  const appeals=users.filter(u=>u.status==='appealing');
+  const banned=users.filter(u=>u.status==='banned'||u.status==='rejected');
+
   document.getElementById('admin-list').innerHTML=admins.map(userRowHtml).join('');
   document.getElementById('regular-list').innerHTML=regs.map(userRowHtml).join('');
   document.getElementById('users-empty').style.display=regs.length?'none':'block';
+
+  document.getElementById('appeals-list').innerHTML=appeals.map(appealRowHtml).join('');
+  document.getElementById('appeals-header').style.display=appeals.length?'block':'none';
+
+  document.getElementById('banned-list').innerHTML=banned.map(bannedRowHtml).join('');
+  document.getElementById('banned-header').style.display=banned.length?'block':'none';
 }
 
 
