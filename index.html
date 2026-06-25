@@ -145,6 +145,24 @@ input[type=range]{width:100%;accent-color:var(--g);margin-top:8px;}
 /* GAUGE */
 .gc{background:var(--s);border-radius:var(--rad);border:1px solid var(--br);padding:20px 16px 14px;margin-bottom:12px;display:flex;flex-direction:column;align-items:center;}
 
+/* RAIN BANNER */
+.rain-banner{display:none;align-items:center;gap:14px;background:linear-gradient(135deg,#4A5C7A,#2E3B52);border-radius:var(--rad);padding:16px;margin-bottom:12px;overflow:hidden;position:relative;}
+.rain-banner.show{display:flex;}
+.rain-icon{position:relative;width:56px;height:48px;flex-shrink:0;}
+.rain-icon .cloud{position:absolute;top:6px;left:4px;width:48px;height:28px;}
+.rain-icon .cloud svg{width:48px;height:28px;}
+.rain-drop{position:absolute;width:2px;height:8px;background:#9EC5F0;border-radius:2px;top:32px;animation:raindrop .7s linear infinite;}
+.rain-drop:nth-child(2){left:14px;animation-delay:0s;}
+.rain-drop:nth-child(3){left:24px;animation-delay:.25s;}
+.rain-drop:nth-child(4){left:34px;animation-delay:.45s;}
+@keyframes raindrop{0%{transform:translateY(0);opacity:1;}100%{transform:translateY(14px);opacity:0;}}
+.rain-bolt{position:absolute;top:28px;left:20px;animation:flash 2.5s ease-in-out infinite;}
+.rain-bolt svg{width:14px;height:16px;}
+@keyframes flash{0%,90%,100%{opacity:0;}92%,96%{opacity:1;}}
+.rain-text{flex:1;}
+.rain-text .t1{font-size:16px;font-weight:700;color:#fff;}
+.rain-text .t2{font-size:12px;color:#C5D4EA;margin-top:2px;}
+
 /* LOGIN SCREEN */
 .login{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;max-width:480px;margin:0 auto;}
 .login.hidden{display:none;}
@@ -311,6 +329,22 @@ input[type=range]{width:100%;accent-color:var(--g);margin-top:8px;}
     <svg stroke="var(--ad)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     <span style="font-size:13px;font-weight:600;color:var(--ad);flex:1;">Connect MQTT to see live data</span>
     <button onclick="switchTab('settings')" style="background:var(--ad);color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;border:none;cursor:pointer;">Setup</button>
+  </div>
+
+  <div class="rain-banner" id="rain-banner">
+    <div class="rain-icon">
+      <div class="cloud">
+        <svg viewBox="0 0 48 28" fill="#DCE7F5"><path d="M38 26H12A10 10 0 0 1 12 6a12 12 0 0 1 23-2 8 8 0 0 1 3 22z"/></svg>
+      </div>
+      <div class="rain-bolt"><svg viewBox="0 0 14 16" fill="#FFD24A"><path d="M8 0L1 9h4l-2 7 8-10H7l1-6z"/></svg></div>
+      <div class="rain-drop"></div>
+      <div class="rain-drop"></div>
+      <div class="rain-drop"></div>
+    </div>
+    <div class="rain-text">
+      <div class="t1">Raining 🌧️</div>
+      <div class="t2">Watering paused — your plant is getting natural water</div>
+    </div>
   </div>
 
   <div class="gc">
@@ -1135,6 +1169,34 @@ function onLight(v){
   tag.textContent=l<30?'Dim':l<70?'Moderate':'Bright';tag.className='pill '+(l<30?'pa':'pg');
 }
 
+let wasRaining=false;
+function onRain(val){
+  const raining=(val==='1'||val.toLowerCase()==='true');
+  document.getElementById('rain-banner').classList.toggle('show',raining);
+  // notify + log only when it CHANGES to raining
+  if(raining&&!wasRaining){
+    showToast('🌧️ Raining — watering paused');
+    addLog('Rain detected — watering paused','#378ADD',null);
+    notify('Demeter','🌧️ Rain detected — watering paused');
+  }
+  if(!raining&&wasRaining){
+    addLog('Rain stopped','#1D9E75',null);
+  }
+  wasRaining=raining;
+}
+
+// Browser notification (works on GitHub Pages / installed app)
+function notify(title,body){
+  try{
+    if(!('Notification' in window))return;
+    if(Notification.permission==='granted'){
+      new Notification(title,{body:body});
+    }else if(Notification.permission!=='denied'){
+      Notification.requestPermission().then(p=>{if(p==='granted')new Notification(title,{body:body});});
+    }
+  }catch(e){}
+}
+
 function updateHealth(){
   const soil=mH.length?mH[mH.length-1]:null;
   const temp=tH.length?tH[tH.length-1]:null;
@@ -1163,11 +1225,13 @@ function connectMQTT(){
     client=mqtt.connect('wss://'+host+':8884/mqtt',{clientId:id,clean:true,reconnectPeriod:5000,connectTimeout:12000});
     client.on('connect',()=>{
       setConn('connected');showToast('Connected!');
-      [topic+'/soil',topic+'/temp',topic+'/humidity',topic+'/light',topic+'/pump/status'].forEach(t=>client.subscribe(t));
+      [topic+'/soil',topic+'/temp',topic+'/humidity',topic+'/light',topic+'/pump/status',topic+'/rain'].forEach(t=>client.subscribe(t));
       addLog('System connected','#1D9E75',null);switchTab('dash');
     });
     client.on('message',(t,m)=>{
-      const v=parseFloat(m.toString());if(isNaN(v))return;
+      const str=m.toString();
+      if(t.endsWith('/rain')){onRain(str);return;}
+      const v=parseFloat(str);if(isNaN(v))return;
       if(t.endsWith('/soil'))onSoil(v);
       else if(t.endsWith('/temp'))onTemp(v);
       else if(t.endsWith('/humidity'))onHum(v);
