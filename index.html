@@ -1473,5 +1473,249 @@ renderSchedules();
 </script>
 <!-- ================== END SPROUT ONE-PASTE BLOCK ================== -->
 
+
+<!-- ================================================================
+DEMETER ENHANCEMENTS — one-paste block
+Adds: (1) status-bar gap for the top bar, (2) Dark mode,
+(3) English / Bahasa Melayu switch, (4) settings rows for both.
+Paste before </body>, after the Sprout block.
+================================================================ -->
+<script>
+(function(){
+  /* ============ 1. CSS: status-bar gap + dark theme ============ */
+  var css = ''
+  /* push the app's top bar below the phone status icons (like TikTok) */
+  + '.tb{height:calc(var(--top,60px) + 26px) !important;padding-top:26px !important}'
+  + '.sprout-panel{padding-top:calc(env(safe-area-inset-top) + 26px) !important}'
+  /* ---- dark theme: repaint the CSS variables ---- */
+  + 'html.dark{'
+  +   '--bg:#0E1411;--s:#19211B;'
+  +   '--t1:#EDF3EE;--t2:#B9C4BB;--t3:#7C877E;'
+  +   '--br:rgba(255,255,255,0.10);'
+  +   '--gl:#173328;--gd:#8FD9BC;'
+  +   '--al:#33270F;--ad:#F0C36A;'
+  +   '--bl:#12283C;--bd:#8FC2F0;'
+  +   '--rl:#39181A;--rd:#F09A9A;'
+  + '}'
+  /* fixes for colors hardcoded outside the variables */
+  + 'html.dark #g-pct{fill:#EDF3EE}'
+  + 'html.dark input,html.dark select{background:#10170F;color:var(--t1);border-color:var(--br)}'
+  + 'html.dark .ic[style*="#fff"]{background:var(--s) !important}'
+  + 'html.dark #setup-bar button{color:#1A1A1A}'
+  + 'html.dark .sprout-fab{background:#19211B;border-color:rgba(255,255,255,.14)}'
+  + 'html.dark .sprout-inputbar input{background:#10170F}'
+  /* new settings rows reuse the app's own classes; nothing extra needed */;
+  var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
+
+  /* ============ 2. English -> Bahasa Melayu dictionary ============ */
+  var MS = {
+    // nav + titles
+    'Dashboard':'Papan Pemuka','Control':'Kawalan','Monitor':'Pemantau','Settings':'Tetapan','Admin':'Admin',
+    'Offline':'Luar Talian','Connected':'Bersambung','Connecting...':'Menyambung...',
+    // login / signup / banned
+    'Welcome back':'Selamat kembali','Log in with Google':'Log masuk dengan Google','or':'atau',
+    'Enter your Gmail':'Masukkan Gmail anda','Log in':'Log masuk','Stay signed in':'Kekal log masuk',
+    "Don't have an account?":'Tiada akaun?','Sign up':'Daftar',
+    'Sign up for Demeter':'Daftar untuk Demeter','Create your account to get started':'Cipta akaun anda untuk bermula',
+    'Continue with Google':'Teruskan dengan Google',
+    'By continuing, you agree to manage your Demeter device responsibly.':'Dengan meneruskan, anda bersetuju mengurus peranti Demeter anda dengan bertanggungjawab.',
+    'Already have an account?':'Sudah ada akaun?',
+    'Access suspended':'Akses digantung',
+    'Your access to Demeter has been suspended by an administrator.':'Akses anda ke Demeter telah digantung oleh pentadbir.',
+    'Submit an appeal':'Buat rayuan','Why should your access be restored?':'Mengapa akses anda patut dipulihkan?',
+    'Send appeal':'Hantar rayuan','Back to login':'Kembali ke log masuk',
+    // modals
+    'Manage user':'Urus pengguna','Cancel':'Batal','Add schedule':'Tambah jadual','Edit schedule':'Sunting jadual',
+    'Name':'Nama','Time':'Masa','Days':'Hari','Duration':'Tempoh','e.g. Morning watering':'cth. Siraman pagi',
+    '5 seconds':'5 saat','10 seconds':'10 saat','15 seconds':'15 saat','30 seconds':'30 saat','60 seconds':'60 saat',
+    'Save schedule':'Simpan jadual',
+    'Sun':'Ahd','Mon':'Isn','Tue':'Sel','Wed':'Rab','Thu':'Kha','Fri':'Jum','Sat':'Sab',
+    'Every day':'Setiap hari','No days':'Tiada hari','Mon\u2013Fri':'Isn\u2013Jum',
+    // dashboard
+    'Connect MQTT to see live data':'Sambung MQTT untuk lihat data langsung','Setup':'Sediakan',
+    '\u26a0\ufe0f Water leak detected!':'\u26a0\ufe0f Kebocoran air dikesan!',
+    'System locked for safety. A manual reset by an administrator is required.':'Sistem dikunci untuk keselamatan. Set semula manual oleh pentadbir diperlukan.',
+    'Soil moisture':'Kelembapan tanah','waiting for data':'menunggu data',
+    'Environmental data':'Data persekitaran','Temperature':'Suhu','Humidity':'Kelembapan udara',
+    'Outdoor weather':'Cuaca luar','Light level':'Tahap cahaya','Last watered':'Kali terakhir disiram',
+    'Quick pump':'Pam pantas','Water':'Siram','Tap to water your plant':'Ketik untuk siram tumbuhan anda',
+    'Plant health':'Kesihatan tumbuhan','Waiting for sensor data...':'Menunggu data sensor...',
+    // dynamic sensor states
+    'Dry \u2014 needs water':'Kering \u2014 perlu air','Moist':'Lembap','Wet':'Basah',
+    'Cool':'Sejuk','Optimal':'Optimum','Warm':'Panas','Dry':'Kering','Good':'Baik','High':'Tinggi',
+    'Dim':'Malap','Moderate':'Sederhana','Bright':'Cerah',
+    'Moisture':'Kelembapan Tanah',
+    // control
+    'Quick actions':'Tindakan pantas','Water now':'Siram sekarang','Watering...':'Menyiram...','tap to stop':'ketik untuk henti',
+    'Automation':'Automasi','Auto mode':'Mod auto','Waters when soil is too dry':'Menyiram apabila tanah terlalu kering',
+    'Auto mode settings':'Tetapan mod auto','Moisture threshold':'Ambang kelembapan','Adjust':'Laras',
+    'Check interval':'Selang semakan','Every 30 min':'Setiap 30 min',
+    'Watering schedules':'Jadual siraman','+ Add':'+ Tambah',
+    'No schedules yet.':'Belum ada jadual.','Tap + Add to create one':'Ketik + Tambah untuk cipta',
+    // monitor
+    'Statistics':'Statistik','Current':'Semasa','Average':'Purata',
+    'Activity logs':'Log aktiviti','No activity yet.':'Belum ada aktiviti.',
+    // settings
+    'MQTT connection':'Sambungan MQTT','Broker host':'Hos broker','Topic prefix':'Awalan topik','Device ID':'ID peranti',
+    'Save & connect':'Simpan & sambung','Disconnect':'Putuskan',
+    'Preferences':'Keutamaan','Notifications':'Pemberitahuan','Data sync':'Segerak data',
+    'About':'Perihal','App version':'Versi aplikasi','Board':'Papan','Protocol':'Protokol',
+    'Demeter Plant Watering System':'Sistem Penyiraman Tumbuhan Demeter','Made for better plant care':'Dibina untuk penjagaan tumbuhan lebih baik',
+    'Account':'Akaun','Not signed in':'Belum log masuk','Sign out':'Log keluar',
+    'Dark mode':'Mod gelap','Language':'Bahasa',
+    // admin
+    'Admin access \u2014 manage users & roles':'Akses admin \u2014 urus pengguna & peranan',
+    'Add admin by email':'Tambah admin melalui e-mel','Grant admin access':'Beri akses admin',
+    'Administrators':'Pentadbir','Users':'Pengguna','No other users yet.':'Belum ada pengguna lain.',
+    'Pending appeals':'Rayuan menunggu','Banned':'Digantung',
+    // logs / toasts (dynamic)
+    'Manual watering started':'Siraman manual dimulakan','Watering completed':'Siraman selesai',
+    'Watering stopped early':'Siraman dihenti awal','Auto triggered \u2014 low moisture':'Auto dicetus \u2014 kelembapan rendah',
+    'System connected':'Sistem bersambung','Connected!':'Bersambung!','Disconnected':'Terputus',
+    'Not connected to MQTT':'Tidak bersambung ke MQTT',
+    'Auto mode enabled':'Mod auto dihidupkan','Auto mode disabled':'Mod auto dimatikan',
+    'Schedule added!':'Jadual ditambah!','Schedule updated!':'Jadual dikemas kini!','Admins only':'Admin sahaja',
+    'just now':'baru sahaja',
+    // sprout
+    'Sprout':'Sprout','Demeter plant assistant':'Pembantu tumbuhan Demeter',
+    'Has my plant been watered?':'Adakah tumbuhan saya telah disiram?',
+    'How is my plant doing?':'Bagaimana keadaan tumbuhan saya?',
+    'How is my plant doing right now?':'Bagaimana keadaan tumbuhan saya sekarang?',
+    'What plant suits my home?':'Tumbuhan apa sesuai untuk rumah saya?',
+    'What plant is suitable for my home?':'Tumbuhan apakah yang sesuai untuk rumah saya?',
+    'Ask about your plant...':'Tanya tentang tumbuhan anda...',
+    'Sign in to use Sprout':'Log masuk untuk guna Sprout'
+  };
+  var EN = {}; Object.keys(MS).forEach(function(k){ EN[MS[k]] = k; });
+  // "time ago" patterns
+  var RX_MS = [[/^(\d+)m ago$/,'$1 min lalu'],[/^(\d+)h ago$/,'$1 jam lalu'],[/^(\d+)d ago$/,'$1 hari lalu']];
+  var RX_EN = [[/^(\d+) min lalu$/,'$1m ago'],[/^(\d+) jam lalu$/,'$1h ago'],[/^(\d+) hari lalu$/,'$1d ago']];
+
+  var lang = 'en';
+  try { lang = localStorage.getItem('demeter_lang') || 'en'; } catch(e){}
+
+  function xl(text, dict, rx){
+    var t = text.trim();
+    if (!t) return null;
+    if (dict[t] !== undefined) return text.replace(t, dict[t]);
+    for (var i=0;i<rx.length;i++){ if (rx[i][0].test(t)) return text.replace(t, t.replace(rx[i][0], rx[i][1])); }
+    return null;
+  }
+
+  function walk(root, dict, rx){
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n){
+        var p = n.parentNode && n.parentNode.nodeName;
+        return (p==='SCRIPT'||p==='STYLE') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var n;
+    while ((n = w.nextNode())){
+      var r = xl(n.nodeValue, dict, rx);
+      if (r !== null) n.nodeValue = r;
+    }
+    // placeholders
+    var inputs = (root.querySelectorAll ? root.querySelectorAll('input[placeholder]') : []);
+    for (var i=0;i<inputs.length;i++){
+      var r2 = xl(inputs[i].placeholder, dict, rx);
+      if (r2 !== null) inputs[i].placeholder = r2;
+    }
+  }
+
+  function mutateGlobals(toMS){
+    try {
+      if (typeof titles !== 'undefined'){
+        titles.dash='Demeter';
+        titles.control = toMS?'Kawalan':'Control';
+        titles.monitor = toMS?'Pemantau':'Monitor';
+        titles.settings= toMS?'Tetapan':'Settings';
+        titles.admin   = 'Admin';
+      }
+    } catch(e){}
+    try {
+      if (typeof dayNames !== 'undefined'){
+        var d = toMS ? ['Ahd','Isn','Sel','Rab','Kha','Jum','Sab'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        for (var i=0;i<7;i++) dayNames[i]=d[i];
+      }
+    } catch(e){}
+  }
+
+  var observer = new MutationObserver(function(muts){
+    if (lang !== 'ms') return;
+    for (var i=0;i<muts.length;i++){
+      var m = muts[i];
+      if (m.type === 'characterData'){
+        var r = xl(m.target.nodeValue, MS, RX_MS);
+        if (r !== null && r !== m.target.nodeValue) m.target.nodeValue = r;
+      } else {
+        for (var j=0;j<m.addedNodes.length;j++){
+          var node = m.addedNodes[j];
+          if (node.nodeType === 3){
+            var r2 = xl(node.nodeValue, MS, RX_MS);
+            if (r2 !== null) node.nodeValue = r2;
+          } else if (node.nodeType === 1){
+            walk(node, MS, RX_MS);
+          }
+        }
+      }
+    }
+  });
+
+  function setLang(l){
+    lang = l;
+    try { localStorage.setItem('demeter_lang', l); } catch(e){}
+    mutateGlobals(l === 'ms');
+    if (l === 'ms') walk(document.body, MS, RX_MS);
+    else            walk(document.body, EN, RX_EN);
+    var sel = document.getElementById('lang-sel');
+    if (sel) sel.value = l;
+  }
+
+  /* ============ 3. Dark mode ============ */
+  var themeMeta = document.querySelector('meta[name="theme-color"]');
+  function setTheme(dark){
+    document.documentElement.classList.toggle('dark', dark);
+    try { localStorage.setItem('demeter_theme', dark?'dark':'light'); } catch(e){}
+    if (themeMeta) themeMeta.setAttribute('content', dark ? '#0E1411' : '#1D9E75');
+    var tog = document.getElementById('theme-tog');
+    if (tog){ tog.classList.toggle('on', dark); tog.classList.toggle('off', !dark); }
+  }
+
+  /* ============ 4. Inject the two Preferences rows ============ */
+  function injectSettings(){
+    var secs = document.querySelectorAll('#scr-settings .sec');
+    var prefSec = null;
+    for (var i=0;i<secs.length;i++){ if (secs[i].textContent.trim()==='Preferences' || secs[i].textContent.trim()==='Keutamaan'){ prefSec = secs[i]; break; } }
+    if (!prefSec || !prefSec.nextElementSibling) return;
+    var card = prefSec.nextElementSibling;
+    var html = ''
+      + '<div class="sr"><div class="row" style="gap:12px;">'
+      +   '<div class="ic" style="background:var(--gl);"><svg stroke="var(--gd)" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>'
+      +   '<span style="font-size:15px;">Dark mode</span></div>'
+      +   '<button class="tog off" id="theme-tog"><div class="tok"></div></button></div>'
+      + '<div class="sr" style="border:none;"><div class="row" style="gap:12px;">'
+      +   '<div class="ic" style="background:var(--bl);"><svg stroke="var(--bd)" viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>'
+      +   '<span style="font-size:15px;">Language</span></div>'
+      +   '<select id="lang-sel" style="width:auto;padding:8px 12px;font-size:14px;font-weight:600;">'
+      +     '<option value="en">English</option><option value="ms">Bahasa Melayu</option>'
+      +   '</select></div>';
+    card.insertAdjacentHTML('beforeend', html);
+    document.getElementById('theme-tog').addEventListener('click', function(){
+      setTheme(!document.documentElement.classList.contains('dark'));
+    });
+    document.getElementById('lang-sel').addEventListener('change', function(){ setLang(this.value); });
+  }
+
+  /* ============ 5. Boot ============ */
+  injectSettings();
+  var savedTheme = 'light';
+  try { savedTheme = localStorage.getItem('demeter_theme') || 'light'; } catch(e){}
+  setTheme(savedTheme === 'dark');
+  observer.observe(document.body, { childList:true, subtree:true, characterData:true });
+  if (lang === 'ms') setLang('ms'); else { var s=document.getElementById('lang-sel'); if(s) s.value='en'; }
+})();
+</script>
+<!-- ================== END DEMETER ENHANCEMENTS ================== -->
+
 </body>
 </html>
