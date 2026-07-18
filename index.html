@@ -1335,7 +1335,9 @@ renderSchedules();
   + '.sprout-preview{display:none;align-items:center;gap:10px;padding:8px 14px;background:var(--s,#fff);border-top:1px solid var(--br,rgba(0,0,0,.08))}'
   + '.sprout-preview.show{display:flex}'
   + '.sprout-preview img{width:44px;height:44px;object-fit:cover;border-radius:8px}'
-  + '.sprout-preview button{margin-left:auto;background:none;border:none;color:var(--t2,#445044);font-size:18px;cursor:pointer}';
+  + '.sprout-preview button{margin-left:auto;background:none;border:none;color:var(--t2,#445044);font-size:18px;cursor:pointer}'
+  + '.sprout-egg{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}'
+  + '.sprout-egg video{max-width:92%;max-height:80%;border-radius:14px}';
   var st = document.createElement('style');
   st.textContent = css;
   document.head.appendChild(st);
@@ -1476,6 +1478,26 @@ renderSchedules();
     var text = (input.value || '').trim();
     if (!text && !pendingImg) return;
     if (!text) text = 'What do you think of this photo of my plant?';
+
+    /* ---------- Easter egg: chiyo chiyo ---------- */
+    if (/chiyo\s*chiyo/i.test(text)) {
+      input.value = '';
+      sproutBubble('user', text);
+      sproutBubble('bot', '\uD83C\uDFB5 Chiyo chiyo~!');
+      var egg = document.createElement('div');
+      egg.className = 'sprout-egg';
+      var vid = document.createElement('video');
+      vid.src = 'chiyo.mp4';
+      vid.autoplay = true; vid.playsInline = true; vid.setAttribute('playsinline','');
+      egg.appendChild(vid);
+      function killEgg(){ try{vid.pause();}catch(e){} egg.remove(); }
+      vid.onended = killEgg;
+      vid.onerror = function(){ killEgg(); sproutBubble('bot', 'chiyo.mp4 not found \u2014 upload it next to index.html \uD83D\uDE05'); };
+      egg.onclick = killEgg;
+      document.body.appendChild(egg);
+      var pp = vid.play(); if (pp && pp.catch) pp.catch(function(){});
+      return;
+    }
     var cu = gv('currentUser', null);
     if (!cu) { if (window.showToast) showToast('Sign in to use Sprout'); return; }
     var burl = gv('BACKEND_URL', null);
@@ -1764,6 +1786,124 @@ Paste before </body>, after the Sprout block.
 })();
 </script>
 <!-- ================== END DEMETER ENHANCEMENTS ================== -->
+
+
+<!-- ================================================================
+DEMETER REDESIGN — Meadow (light) / Nocturne (dark)
+Restyles the existing app per the redesign deck. No logic changes.
+Delete this block and the old UI returns. All DOM surgery is guarded.
+================================================================ -->
+<script>
+(function(){
+  var css = ''
+  /* ---------- shared geometry: bigger radius, airier cards ---------- */
+  + ':root{--rad:20px}'
+  + '.card{border-radius:20px;box-shadow:0 1px 2px rgba(17,24,17,.04);border:1px solid var(--br)}'
+  + '.sec{letter-spacing:.08em;font-size:11px}'
+
+  /* ---------- MEADOW (light) ---------- */
+  + 'html:not(.dark) body{--bg:#F2F5EF;--s:#FFFFFF;--gl:#E7F2E3;--g:#1D9E75}'
+  + '#scr-dash .card:first-of-type{padding-top:22px;padding-bottom:22px}'
+
+  /* 2x2 sensor grid (JS wraps the four env cards into .envgrid) */
+  + '.envgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}'
+  + '.envgrid .card{margin:0;padding:14px 12px;font-size:14px}'
+  + '.envgrid .card .ic{width:34px;height:34px}'
+
+  /* one confident full-width water action */
+  + '.wb{width:100%;border-radius:20px}'
+
+  /* nav: active tab as a pill */
+  + '.ni{border-radius:14px;margin:6px 3px}'
+  + '.ni.active{background:var(--gl)}'
+  + 'html.dark .ni.active{background:rgba(61,220,151,.12)}'
+
+  /* ---------- NOCTURNE (dark) ---------- */
+  + 'html.dark{'
+  +   '--bg:#0A0E0C;--s:#121814;'
+  +   '--t1:#EAF2EC;--t2:#A9B8AD;--t3:#6E7B72;'
+  +   '--br:rgba(255,255,255,0.08);'
+  +   '--g:#3DDC97;--gl:#12291E;--gd:#8FE9C3;'
+  +   '--al:#2C230E;--ad:#F2C063;'
+  +   '--bl:#0F2233;--bd:#8FC2F0;'
+  +   '--rl:#331416;--rd:#F09A9A;'
+  + '}'
+  + 'html.dark .card{box-shadow:none;border-color:rgba(255,255,255,.07)}'
+  /* mono data labels — the "serious IoT product" read */
+  + 'html.dark #g-pct{font-family:ui-monospace,Menlo,Consolas,monospace;fill:#EAF2EC}'
+  + 'html.dark .card b,html.dark .card strong{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:-.01em}'
+  + 'html.dark .badge{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}'
+
+  /* ---------- Admin: stats hero + role pill polish ---------- */
+  + '.admin-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}'
+  + '.admin-stats .as{background:var(--s);border:1px solid var(--br);border-radius:16px;padding:14px 10px;text-align:center}'
+  + '.admin-stats .as b{display:block;font-size:22px;color:var(--t1)}'
+  + 'html.dark .admin-stats .as b{font-family:ui-monospace,Menlo,Consolas,monospace}'
+  + '.admin-stats .as span{font-size:11px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase}'
+  + '.urole{border-radius:12px;padding:3px 9px}';
+
+  var st = document.createElement('style');
+  st.textContent = css;
+  document.head.appendChild(st);
+
+  /* ---------- JS: wrap the four environment cards into a 2x2 grid ---------- */
+  try {
+    var dash = document.getElementById('scr-dash');
+    if (dash) {
+      var secs = dash.querySelectorAll('.sec');
+      var envSec = null;
+      for (var i = 0; i < secs.length; i++) {
+        var t = secs[i].textContent.trim().toLowerCase();
+        if (t.indexOf('environmental') === 0 || t.indexOf('data persekitaran') === 0) { envSec = secs[i]; break; }
+      }
+      if (envSec) {
+        var picked = [];
+        var n = envSec.nextElementSibling;
+        while (n && picked.length < 4 && n.classList && n.classList.contains('card')) {
+          var nx = n.nextElementSibling;
+          picked.push(n);
+          n = nx;
+        }
+        if (picked.length === 4) {
+          var grid = document.createElement('div');
+          grid.className = 'envgrid';
+          envSec.parentNode.insertBefore(grid, picked[0]);
+          for (var j = 0; j < 4; j++) grid.appendChild(picked[j]);
+        }
+      }
+    }
+  } catch (e) {}
+
+  /* ---------- JS: admin stats hero (members / admins / banned) ---------- */
+  try {
+    var adm = document.getElementById('scr-admin');
+    if (adm && typeof renderUsers === 'function') {
+      var hero = document.createElement('div');
+      hero.className = 'admin-stats';
+      hero.id = 'admin-stats';
+      hero.innerHTML =
+          '<div class="as"><b id="as-m">0</b><span>Members</span></div>'
+        + '<div class="as"><b id="as-a">0</b><span>Admins</span></div>'
+        + '<div class="as"><b id="as-b">0</b><span>Banned</span></div>';
+      adm.insertBefore(hero, adm.firstChild);
+
+      var origRender = renderUsers;
+      renderUsers = function(){
+        origRender.apply(this, arguments);
+        try {
+          var u = (typeof users !== 'undefined' && users) ? users : [];
+          var act = u.filter(function(x){ return !x.status || x.status === 'active'; });
+          document.getElementById('as-m').textContent = act.length;
+          document.getElementById('as-a').textContent = act.filter(function(x){ return x.role === 'admin'; }).length;
+          document.getElementById('as-b').textContent = u.filter(function(x){ return x.status === 'banned' || x.status === 'rejected'; }).length;
+        } catch (e) {}
+      };
+      renderUsers();
+    }
+  } catch (e) {}
+})();
+</script>
+<!-- ================== END DEMETER REDESIGN ================== -->
 
 </body>
 </html>
