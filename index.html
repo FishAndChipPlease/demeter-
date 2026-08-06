@@ -477,7 +477,18 @@ input[type=range]{width:100%;accent-color:var(--g);margin-top:8px;}
 <div class="scr" id="scr-settings">
   <div class="sec" style="margin-top:4px;">MQTT connection</div>
   <div class="card">
-    <div style="margin-bottom:14px;"><div style="font-size:13px;font-weight:700;color:var(--t2);">Broker host</div><input type="text" id="cfg-host" value="broker.hivemq.com"></div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:var(--t2);margin-bottom:8px;">Broker</div>
+      <div style="display:flex;gap:8px;">
+        <button class="db sel" id="mode-server" onclick="setBrokerMode('server')" style="flex:1;">My Server</button>
+        <button class="db" id="mode-cloud" onclick="setBrokerMode('cloud')" style="flex:1;">Cloud</button>
+      </div>
+    </div>
+    <div style="margin-bottom:14px;"><div style="font-size:13px;font-weight:700;color:var(--t2);">Broker host</div><input type="text" id="cfg-host" value="10.177.209.196"></div>
+    <div id="server-creds">
+      <div style="margin-bottom:14px;"><div style="font-size:13px;font-weight:700;color:var(--t2);">Username</div><input type="text" id="cfg-user" value="demeter"></div>
+      <div style="margin-bottom:14px;"><div style="font-size:13px;font-weight:700;color:var(--t2);">Password</div><input type="password" id="cfg-pass" value="UruhaRushiaPettan_05"></div>
+    </div>
     <div style="margin-bottom:14px;"><div style="font-size:13px;font-weight:700;color:var(--t2);">Topic prefix</div><input type="text" id="cfg-topic" value="demeter"></div>
     <div style="margin-bottom:6px;"><div style="font-size:13px;font-weight:700;color:var(--t2);">Device ID</div><input type="text" id="cfg-id" value="demeter-001"></div>
     <button class="btn btn-g" style="margin-top:14px;" onclick="connectMQTT()">Save &amp; connect</button>
@@ -1243,14 +1254,38 @@ function updateHealth(){
 }
 
 // MQTT
+// Broker mode: 'server' = your private Mosquitto, 'cloud' = HiveMQ public
+let brokerMode='server';
+function setBrokerMode(m){
+  brokerMode=m;
+  document.getElementById('mode-server').classList.toggle('sel',m==='server');
+  document.getElementById('mode-cloud').classList.toggle('sel',m==='cloud');
+  document.getElementById('server-creds').style.display=(m==='server')?'block':'none';
+  const host=document.getElementById('cfg-host');
+  // swap the default host when switching, unless user typed a custom one
+  if(m==='server'&&(host.value==='broker.hivemq.com'||!host.value.trim())) host.value='10.177.209.196';
+  if(m==='cloud'&&(host.value==='10.177.209.196'||!host.value.trim())) host.value='broker.hivemq.com';
+  try{localStorage.setItem('demeter_broker_mode',m);}catch(e){}
+}
+
 function connectMQTT(){
-  const host=document.getElementById('cfg-host').value.trim()||'broker.hivemq.com';
+  const host=document.getElementById('cfg-host').value.trim()||(brokerMode==='server'?'10.177.209.196':'broker.hivemq.com');
   const topic=document.getElementById('cfg-topic').value.trim()||'demeter';
   const id='dmt-'+Math.random().toString(16).slice(2,10);
   if(client){try{client.end(true);}catch(e){}client=null;}
   setConn('connecting');showToast('Connecting...');
   try{
-    client=mqtt.connect('wss://'+host+':8884/mqtt',{clientId:id,clean:true,reconnectPeriod:5000,connectTimeout:12000});
+    let url,opts={clientId:id,clean:true,reconnectPeriod:5000,connectTimeout:12000};
+    if(brokerMode==='server'){
+      // private Mosquitto: plain ws on port 9001, with username + password
+      url='ws://'+host+':9001';
+      opts.username=document.getElementById('cfg-user').value.trim()||'demeter';
+      opts.password=document.getElementById('cfg-pass').value||'';
+    }else{
+      // HiveMQ public: secure websocket on 8884, no auth
+      url='wss://'+host+':8884/mqtt';
+    }
+    client=mqtt.connect(url,opts);
     client.on('connect',()=>{
       setConn('connected');showToast('Connected!');
       [topic+'/soil',topic+'/temp',topic+'/humidity',topic+'/light',topic+'/pump/status',topic+'/leak'].forEach(t=>client.subscribe(t));
@@ -1277,6 +1312,7 @@ function disconnectMQTT(){
 }
 
 // INIT
+try{var _bm=localStorage.getItem('demeter_broker_mode');if(_bm)setBrokerMode(_bm);}catch(e){}
 loadUsers();
 restoreSession();
 fetchWeather();
